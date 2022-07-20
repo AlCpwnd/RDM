@@ -15,9 +15,6 @@ if(!$MVInfo){
     return
 }
 
-# Connects to the Database configuration
-# Start-RDMInstance # => Might not be needed
-
 # Sets current location within the $MainVault
 Set-RDMCurrentRepository $MVInfo
 
