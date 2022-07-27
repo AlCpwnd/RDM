@@ -16,6 +16,7 @@ function Show-Disclaimer{
         Write-Host "`t[!] Do you wish to continue execution knowing this? y/n (N)" -ForegroundColor Red -NoNewline
         $Choice = Read-Host
     }until($Choice -match "y|n" -or !$Choice)
+    Write-Host ""
     switch ($Choice) {
         y {return $true}
         Default {return $false}
