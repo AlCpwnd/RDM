@@ -1,5 +1,35 @@
 #Requires -Module RemoteDesktopManager
 
+#:Safety Net:#################################################
+##############################################################
+$OpenPoints = (
+    "Have yet to verify if connexion permissions are preserved when copying and/or moving sessions.",
+    "Have yet to verify what permission are given to the vaults by default."
+)    
+
+function Show-Disclaimer{
+    param([Parameter(Mandatory,Position=0)][Array]$Points)
+    Write-Host "`n`t[!] Open points/notes found:`n" -ForegroundColor Red
+    $Points | ForEach-Object{Write-Host "`t- $_" -ForegroundColor Red}
+    Write-Host ""
+    do{
+        Write-Host "`t[!] Do you wish to continue execution knowing this? y/n (N)" -ForegroundColor Red -NoNewline
+        $Choice = Read-Host
+    }until($Choice -match "y|n" -or !$Choice)
+    switch ($Choice) {
+        y {return $true}
+        Default {return $false}
+    }
+}
+
+if($OpenPoints){
+    if(!(Show-Disclaimer $OpenPoints)){
+        return
+    }
+}
+##############################################################
+##############################################################
+
 param(
     [Parameter(Mandatory)][String]$MainVault
 )
