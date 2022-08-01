@@ -92,7 +92,7 @@ foreach($Session in $Sessions){
         # Copies the cession over
         Set-RDMCession $Move
     }catch{
-        Show-Error "Failed to move : $Session"
+        Show-Error "Failed to move : $($Session.Group)"
     }
 }
 
