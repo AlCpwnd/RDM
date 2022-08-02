@@ -1,3 +1,7 @@
+param(
+    [Parameter(Mandatory)][String]$MainVault
+)
+
 #Requires -Module RemoteDesktopManager
 
 #:Safety Net:#################################################
@@ -31,28 +35,26 @@ if($OpenPoints){
 ##############################################################
 ##############################################################
 
-param(
-    [Parameter(Mandatory)][String]$MainVault
-)
-
 # Functions:
 function Show-Info{param([String]$Msg)Write-host "$(Get-Date -f HH:mm:ss)`t=i=`t$Msg"}
 function Show-Error{param([String]$Msg)Write-host "$(Get-Date -f HH:mm:ss)`t/!\`t$Msg" -ForegroundColor Yellow}
 
 # Verifies the parameter
 $MVInfo = Get-RDMVault -Name $MainVault
+Show-Info "Main Vault defined as : $($MainVault.Name)"
 if(!$MVInfo){
     Show-Error "Invalid Main Vault : $MainVault"
     return
 }
 
 # Sets current location within the $MainVault
-Set-RDMCurrntVault $MVInfo
+Set-RDMCurrentVault $MVInfo
 
 # Recovers all existing cesisons
 $Sessions = Get-RDMSession 
 # Recovers all groups
 $Groups = $Sessions | Where-Object{$_.Group -notmatch "\\"} | Select-Object Group -Unique 
+Show-Info "$($Groups.Count) Groups found."
 # Recovers all existing repositories
 $Repositories = Get-RDMVault
 
@@ -63,7 +65,8 @@ foreach($Group in $Groups){
         Continue
     }
     try{
-        $Vault = New-RDMVault -Name $Group
+        $Parameters = @{Name = $Group}
+        $Vault = New-RDMVault @Parameters
         Set-RDMVault $Vault -ErrorAction Stop
     }catch{
         Show-Error "Failed to create a vault for : $Group"
@@ -75,22 +78,22 @@ Update-RDMUI
 
 # 
 foreach($Session in $Sessions){
-    # Verifies if the current cession isn't one of the $Groups
+    # Verifies if the current session isn't one of the $Groups
     if($Session -notmatch "\\"){
         Continue
     }
     # Moves to the $MainVault
-    Set-RDMCurrntVault $MVInfo
+    Set-RDMCurrentVault $MVInfo
     try{
-        # Recovers the information of the current cession
-        # -DontChangeID  -->  Will move instead of copy the cession
-        $Move = Copy-RDMSession -DontChangeID -IncludePasswordHistory -IncludeSubConnections -ErrorAction Stop
-        # Recovers the new location's information based on the cession's name
-        $NewVault = Get-RDMVault -Name $Session.Split("\")[0]
+        # Recovers the information of the current session
+        # -DontChangeID  -->  Will move instead of copy the session
+        $Move = Copy-RDMSession -PSConnection $Session -IncludePasswordHistory -IncludeSubConnections -ErrorAction Stop
+        # Recovers the new location's information based on the session's name
+        $NewVault = Get-RDMVault -Name $Session.Group.Split("\")[0]  -ErrorAction Stop
         # Moves into the new vault        
-        Set-RDMCurrntVault $NewVault
-        # Copies the cession over
-        Set-RDMCession $Move
+        Set-RDMCurrentVault $NewVault -ErrorAction Stop
+        # Copies the session over
+        Set-RDMSession $Move -ErrorAction Stop
     }catch{
         Show-Error "Failed to move : $($Session.Group)"
     }
