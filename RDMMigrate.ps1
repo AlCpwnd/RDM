@@ -76,10 +76,28 @@ foreach($Group in $Groups){
 # Update the Remote desktop manager UI in order to show the changes
 Update-RDMUI
 
-# 
+# Moves the existing architecture over
+$Folders = $sessions | Where-Object{$_.ConnectionType -eq "Group" -and $_.Group -match "\\"} | Sort-Object Group
+foreach($Folder in $Folders){
+    Set-RDMCurrentVault $MVInfo
+    try{
+        # Recovers the information of the current session
+        # -DontChangeID  -->  Will move instead of copy the session
+        $Move = Copy-RDMSession -PSConnection $Folder -IncludePasswordHistory -IncludeSubConnections -ErrorAction Stop
+        # Recovers the new location's information based on the session's name
+        $NewVault = Get-RDMVault -Name $Folder.Group.Split("\")[0]  -ErrorAction Stop
+        # Moves into the new vault        
+        Set-RDMCurrentVault $NewVault -ErrorAction Stop
+        # Copies the session over
+        Set-RDMSession $Move -ErrorAction Stop
+    }catch{
+        Show-Error "Failed to move folder : $($Session.Group)"
+    }
+}
+
 foreach($Session in $Sessions){
-    # Verifies if the current session isn't one of the $Groups
-    if($Session -notmatch "\\"){
+    # Verifies if the current session isn't a group
+    if($Session.ConnectionType -ne "Group"){
         Continue
     }
     # Moves to the $MainVault
@@ -95,7 +113,7 @@ foreach($Session in $Sessions){
         # Copies the session over
         Set-RDMSession $Move -ErrorAction Stop
     }catch{
-        Show-Error "Failed to move : $($Session.Group)"
+        Show-Error "Failed to move session : $($Session.Group)"
     }
 }
 
