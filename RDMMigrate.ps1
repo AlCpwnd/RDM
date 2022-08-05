@@ -4,44 +4,21 @@ param(
 
 #Requires -Module RemoteDesktopManager
 
-#:Safety Net:#################################################
-##############################################################
-$OpenPoints = (
-    "Have yet to verify if connexion permissions are preserved when copying and/or moving sessions.",
-    "Have yet to verify what permission are given to the vaults by default."
-)    
+#===========#
+# Functions #
+#===========#
 
-function Show-Disclaimer{
-    param([Parameter(Mandatory,Position=0)][Array]$Points)
-    Write-Host "`n`t[!] Open points/notes found:`n" -ForegroundColor Red
-    $Points | ForEach-Object{Write-Host "`t- $_" -ForegroundColor Red}
-    Write-Host ""
-    do{
-        Write-Host "`t[!] Do you wish to continue execution knowing this? y/n (N)" -ForegroundColor Red -NoNewline
-        $Choice = Read-Host
-    }until($Choice -match "y|n" -or !$Choice)
-    Write-Host ""
-    switch ($Choice) {
-        y {return $true}
-        Default {return $false}
-    }
-}
-
-if($OpenPoints){
-    if(!(Show-Disclaimer $OpenPoints)){
-        return
-    }
-}
-##############################################################
-##############################################################
-
-# Functions:
 function Show-Info{param([String]$Msg)Write-host "$(Get-Date -f HH:mm:ss)`t=i=`t$Msg"}
-function Show-Error{param([String]$Msg)Write-host "$(Get-Date -f HH:mm:ss)`t/!\`t$Msg" -ForegroundColor Yellow}
+function Show-Error{param([String]$Msg)Write-host "$(Get-Date -f HH:mm:ss)`t/!\`t$Msg" -ForegroundColor Red}
+
+
+#=================#
+# Security Checks #
+#=================#
 
 # Verifies the parameter
 $MVInfo = Get-RDMVault -Name $MainVault
-Show-Info "Main Vault defined as : $($MainVault.Name)"
+Show-Info "Main Vault defined as : $($MVInfo.Name)"
 if(!$MVInfo){
     Show-Error "Invalid Main Vault : $MainVault"
     return
@@ -50,72 +27,80 @@ if(!$MVInfo){
 # Sets current location within the $MainVault
 Set-RDMCurrentVault $MVInfo
 
-# Recovers all existing cesisons
-$Sessions = Get-RDMSession 
-# Recovers all groups
-$Groups = $Sessions | Where-Object{$_.Group -notmatch "\\"} | Select-Object Group -Unique 
-Show-Info "$($Groups.Count) Groups found."
+
+#=====================#
+# Variable Definition #
+#=====================#
+
+# Recovers all existing sessions
+$Entries = Get-RDMSession
+Show-Info "$($Entries.Count) Entries found."
+
+# Seperates the main groups
+$MainGroups = ($Entries | Where-Object{$_.Group -notmatch "\\|Test"} | Select-Object Group -Unique).Group
+Show-Info "$($MainGroups.Count) MainGroups found."
+
+# Lists all the subfolders
+$Folders = $Entries | Where-Object{$_.ConnectionType -eq "Group" -and $_.Group -match "\\"} | Sort-Object Group
+
+# Lists all the remaining sessions
+$Sessions = $Entries | Where-Object{$_.ConnectionType -ne "Group" -and $_.Group -match "\\"} | Sort-Object Group
+
 # Recovers all existing repositories
 $Repositories = Get-RDMVault
 
-# Creates a Vault for each group and skips in case it already exists
-foreach($Group in $Groups){
+
+#========#
+# Script #
+#========#
+
+# Start Vault check/creation
+foreach($Group in $MainGroups){
     if($Repositories.Name -contains $Group){
         Show-Info "Existing vault found for : $Group .Skipping."
         Continue
     }
-    try{
-        $Parameters = @{Name = $Group}
-        $Vault = New-RDMVault @Parameters
-        Set-RDMVault $Vault -ErrorAction Stop
-    }catch{
-        Show-Error "Failed to create a vault for : $Group"
-    }
+    $Parameters = @{Name = $Group}
+    $Vault = New-RDMVault @Parameters
+    Set-RDMVault $Vault
+    Show-Info "Created vault : $Group"
 }
+# End Vault check/creation
 
-# Update the Remote desktop manager UI in order to show the changes
 Update-RDMUI
 
-# Moves the existing architecture over
-$Folders = $sessions | Where-Object{$_.ConnectionType -eq "Group" -and $_.Group -match "\\"} | Sort-Object Group
-foreach($Folder in $Folders){
-    Set-RDMCurrentVault $MVInfo
-    try{
-        # Recovers the information of the current session
-        # -DontChangeID  -->  Will move instead of copy the session
-        $Move = Copy-RDMSession -PSConnection $Folder -IncludePasswordHistory -IncludeSubConnections -ErrorAction Stop
-        # Recovers the new location's information based on the session's name
-        $NewVault = Get-RDMVault -Name $Folder.Group.Split("\")[0]  -ErrorAction Stop
-        # Moves into the new vault        
-        Set-RDMCurrentVault $NewVault -ErrorAction Stop
-        # Copies the session over
-        Set-RDMSession $Move -ErrorAction Stop
-    }catch{
-        Show-Error "Failed to move folder : $($Session.Group)"
-    }
-}
+# Update vaults after creation
+$Repositories = Get-RDMRepository
 
-foreach($Session in $Sessions){
-    # Verifies if the current session isn't a group
-    if($Session.ConnectionType -ne "Group"){
-        Continue
+# Start folder ceation
+foreach($MGroup in $MainGroups){
+    $GroupFolders = $Folders | Where-Object{$_.Group -like "$MGroup\*"}
+    $FolderCreation = foreach($Folder in $GroupFolders){
+        $Copy = Copy-RDMSession $Folder -IncludePasswordHistory -IncludeSubConnections
+        $Copy.Group = $Copy.Group.Replace("$MGroup\","") # New vault doesn't have the first folder level structure
+        $Copy
     }
-    # Moves to the $MainVault
-    Set-RDMCurrentVault $MVInfo
-    try{
-        # Recovers the information of the current session
-        # -DontChangeID  -->  Will move instead of copy the session
-        $Move = Copy-RDMSession -PSConnection $Session -IncludePasswordHistory -IncludeSubConnections -ErrorAction Stop
-        # Recovers the new location's information based on the session's name
-        $NewVault = Get-RDMVault -Name $Session.Group.Split("\")[0]  -ErrorAction Stop
-        # Moves into the new vault        
-        Set-RDMCurrentVault $NewVault -ErrorAction Stop
-        # Copies the session over
-        Set-RDMSession $Move -ErrorAction Stop
-    }catch{
-        Show-Error "Failed to move session : $($Session.Group)"
-    }
+    $Repo = $Repositories[$Repositories.Name.IndexOf($MGroup)]
+    Set-RDMRepository $Repo
+    $FolderCreation | ForEach-Object{Set-RDMSession $_}
+    Set-RDMCurrentRepository $MVInfo
 }
+# End folder creation
 
-# Update the Remote desktop manager UI in order to show the changes
+Update-RDMUI
+
+# Start session creation
+foreach($MGroup in $MainGroups){
+    $GroupSessions = $Sessions | Where-Object{$_.Group -like "$MGroup\*"}
+    $SessionCreation = foreach($Folder in $GroupSessions){
+        $Copy = Copy-RDMSession $Folder -IncludePasswordHistory -IncludeSubConnections
+        $Copy.Group = $Copy.Group.Replace("$MGroup\","") # New vault doesn't have the first folder level structure
+        $Copy
+    }
+    Set-RDMRepository (Get-RDMRepository -Name $MGroup)
+    $SessionCreation | ForEach-Object{Set-RDMSession $_}
+    Set-RDMCurrentRepository $MVInfo
+}
+# End session creation
+
 Update-RDMUI
