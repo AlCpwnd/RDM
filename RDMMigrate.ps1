@@ -37,7 +37,7 @@ $Entries = Get-RDMSession
 Show-Info "$($Entries.Count) Entries found."
 
 # Seperates the main groups
-$MainGroups = ($Entries | Where-Object{$_.Group -notmatch "\\|Test"} | Select-Object Group -Unique).Group
+$MainGroups = ($Entries | Where-Object{$_.Group -eq $_.Name -and $_.ConnectionType -eq "Group"} | Select-Object Group -Unique).Group
 Show-Info "$($MainGroups.Count) MainGroups found."
 
 # Lists all the subfolders
@@ -57,7 +57,7 @@ $Repositories = Get-RDMVault
 # Start Vault check/creation
 foreach($Group in $MainGroups){
     if($Repositories.Name -contains $Group){
-        Show-Info "Existing vault found for : $Group .Skipping."
+        Show-Info "Existing vault found for : $Group. Skipping."
         Continue
     }
     $Parameters = @{Name = $Group}
@@ -74,15 +74,17 @@ $Repositories = Get-RDMRepository
 
 # Start folder ceation
 foreach($MGroup in $MainGroups){
+    Show-Info "Attempting to recreate folder structure for : $MGroup"
     $GroupFolders = $Folders | Where-Object{$_.Group -like "$MGroup\*"}
     $FolderCreation = foreach($Folder in $GroupFolders){
         $Copy = Copy-RDMSession $Folder -IncludePasswordHistory -IncludeSubConnections
         $Copy.Group = $Copy.Group.Replace("$MGroup\","") # New vault doesn't have the first folder level structure
         $Copy
     }
-    $Repo = $Repositories[$Repositories.Name.IndexOf($MGroup)]
-    Set-RDMRepository $Repo
+    Show-Info "$($FolderCreation.Count) folder(s) to be created"
+    Set-RDMCurrentRepository (Get-RDMRepository -Name $MGroup)
     $FolderCreation | ForEach-Object{Set-RDMSession $_}
+    Show-Info "Folders created for : $MGroup"
     Set-RDMCurrentRepository $MVInfo
 }
 # End folder creation
@@ -91,14 +93,17 @@ Update-RDMUI
 
 # Start session creation
 foreach($MGroup in $MainGroups){
+    Show-Info "Attempting to recreate sessions structure for : $MGroup"
     $GroupSessions = $Sessions | Where-Object{$_.Group -like "$MGroup\*"}
     $SessionCreation = foreach($Folder in $GroupSessions){
         $Copy = Copy-RDMSession $Folder -IncludePasswordHistory -IncludeSubConnections
         $Copy.Group = $Copy.Group.Replace("$MGroup\","") # New vault doesn't have the first folder level structure
         $Copy
     }
-    Set-RDMRepository (Get-RDMRepository -Name $MGroup)
+    Show-Info "$($SessionCreation.Count) session(s) to be created"
+    Set-RDMCurrentRepository (Get-RDMRepository -Name $MGroup)
     $SessionCreation | ForEach-Object{Set-RDMSession $_}
+    Show-Info "Sessions created for : $MGroup"
     Set-RDMCurrentRepository $MVInfo
 }
 # End session creation
