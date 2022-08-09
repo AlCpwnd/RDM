@@ -44,7 +44,7 @@ Show-Info "$($MainGroups.Count) MainGroups found."
 $Folders = $Entries | Where-Object{$_.ConnectionType -eq "Group" -and $_.Group -match "\\"} | Sort-Object Group
 
 # Lists all the remaining sessions
-$Sessions = $Entries | Where-Object{$_.ConnectionType -ne "Group" -and $_.Group -match "\\"} | Sort-Object Group
+$Sessions = $Entries | Where-Object{$_.ConnectionType -ne "Group"} | Sort-Object Group
 
 # Recovers all existing repositories
 $Repositories = Get-RDMVault
