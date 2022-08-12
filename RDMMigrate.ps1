@@ -1,6 +1,8 @@
 param(
-    [Parameter(Mandatory)][String]$MainVault,
-    [AllowEmptyString()][String]$Logs
+    [Parameter(Mandatory,ParameterSetName="Logging")][Parameter(Mandatory,ParameterSetName="Default")][String]$MainVault,
+    [Parameter(Mandatory,ParameterSetName="Logging")][Switch]$Log,
+    [Parameter(ParameterSetName="Logging")][String]$Path,
+    [Parameter(ParameterSetName="Default")][Parameter(ParameterSetName="Loggin")][Switch]$Silent
 )
 
 #Requires -Module RemoteDesktopManager
@@ -14,14 +16,14 @@ function Show-Status{
         [Parameter(Mandatory,Position=0)][ValidateSet("info","error","warning")]$Type,
         [Parameter(Mandatory,Position=1)][String]$Message
     )
-    if($Silent){return}
     $Date = Get-Date -Format HH:mm:ss
     switch($Type){
-        "Info" {$Parameters = @{Object = "$Date (i) $Message"}}
+        "info" {$Parameters = @{Object = "$Date (i) $Message"}}
         "warning" {$Parameters = @{Object = "$Date /!\ $Message";ForegroundColor = "Yellow"}}
         "error" {$Parameters = @{Object = "$Date [!] $Message";ForegroundColor = "Red"}}
     }
-    Write-Host @Parameters
+    if($Log){Add-Content -Path $Path -Value $Parameters.Object -ErrorAction SilentlyContinue}
+    if(!$Silent){Write-Host @Parameters}
 }
 
 
@@ -29,18 +31,34 @@ function Show-Status{
 # Security Checks #
 #=================#
 
-if($Logs){
-    if()
-    if(Test-Path -Path $Logs -PathType Container){
-        $Logs += "\$(Get-Date -Format yyyyMMdd)_RDMMigrate_Logs.txt"
-        $Logs.Replace("\\","\")
+Show-Status info "Initiating script"
+Show-Status info "Verifying parameters"
+
+if($Log){
+    if($Path){
+        if(Test-Path -Path $Path -PathType Container){
+            $Path += "\$(Get-Date -Format yyyyMMdd)_RDMMigrate_Logs.txt"
+            $LogPath = $Path.Replace("\\","\")
+        }elseif(Test-Path -Path $Path -PathType Leaf){
+            $LogPath = $Path
+        }else{
+            Show-Status error "Invalid log path: $Path"
+            return
+        }
+    }else{
+        $LogPath = "$PSScriptRoot\$(Get-Date -Format yyyyMMdd)_RDMMigrate_Logs.txt"
     }
+    Show-Status info "Loggin enabled"
+    Show-Status info "Logfile path: $LogPath"
 }
 
+Show-Status info "Verifying variables"
+
 # Verifies the parameter
-$MVInfo = Get-RDMVault -Name $MainVault
-Show-Status info "Main Vault defined as : $($MVInfo.Name)"
-if(!$MVInfo){
+try{
+    $MVInfo = Get-RDMVault -Name $MainVault
+    Show-Status info "Main Vault defined as : $($MVInfo.Name)"
+}catch{
     Show-Status error "Invalid Main Vault : $MainVault"
     return
 }
@@ -52,6 +70,9 @@ Set-RDMCurrentVault $MVInfo
 #=====================#
 # Variable Definition #
 #=====================#
+
+# Verifies if the Remote Desktop Manager client is running
+if(Get-Process | Where-Object{$_.Name -match "RemoteDesktopManager"}){$ClientRunning = $true}
 
 # Recovers all existing sessions
 $Entries = Get-RDMSession
@@ -78,7 +99,7 @@ $Repositories = Get-RDMVault
 # Start Vault check/creation
 foreach($Group in $MainGroups){
     if($Repositories.Name -contains $Group){
-        Show-Status warning "Existing vault found for : $Group. Skipping."
+        Show-Status warning "Existing vault found for : $Group _Skipping_"
         Continue
     }
     $Parameters = @{Name = $Group}
@@ -88,7 +109,7 @@ foreach($Group in $MainGroups){
 }
 # End Vault check/creation
 
-Update-RDMUI
+if($ClientRunning){Update-RDMUI}
 
 # Update vaults after creation
 $Repositories = Get-RDMRepository
@@ -102,31 +123,55 @@ foreach($MGroup in $MainGroups){
         $Copy.Group = $Copy.Group.Replace("$MGroup\","") # New vault doesn't have the first folder level structure
         $Copy
     }
-    Show-Status info "$($FolderCreation.Count) folder(s) to be created"
+    Show-Status info "$($FolderCreation.Count) folder(s) found"
+    Show-Status info "Moving to vault: $MGroup"
     Set-RDMCurrentRepository (Get-RDMRepository -Name $MGroup)
-    $FolderCreation | ForEach-Object{Set-RDMSession $_}
-    Show-Status info "Folders created for : $MGroup"
+    $ExistingFolders = Get-RDMSession -ErrorAction SilentlyContinue | Where-Object{$_.Name -eq $_.Group -and $_.ConnectionType -eq "Group"}
+    foreach($Folder in $FolderCreation){
+        $Test = $ExistingFolders | Where-Object{$Folder.Name -eq $_.Name -and $Folder.Group -eq $_.Group}
+        if($Test){
+            Show-Status warning "Existing corresponding entry found for folder: $($Folder.Name) _Skipping_"
+            continue
+        }
+        # Set-RDMSession $Folder
+        Show-Status info "Created folder: $($Folder.Name)"
+    }
+    Show-Status info "Folders created for: $MGroup"
     Set-RDMCurrentRepository $MVInfo
 }
 # End folder creation
 
-Update-RDMUI
+if($ClientRunning){Update-RDMUI}
 
 # Start session creation
 foreach($MGroup in $MainGroups){
-    Show-Status info "Attempting to recreate sessions structure for : $MGroup"
-    $GroupSessions = $Sessions | Where-Object{$_.Group -like "$MGroup\*"}
-    $SessionCreation = foreach($Folder in $GroupSessions){
-        $Copy = Copy-RDMSession $Folder -IncludePasswordHistory -IncludeSubConnections
-        $Copy.Group = $Copy.Group.Replace("$MGroup\","") # New vault doesn't have the first folder level structure
+    Show-Status info "Attempting to recreate sessions for : $MGroup"
+    $GroupSessions = $Sessions | Where-Object{$_.Group -cmatch "$MGroup"}
+    $SessionCreation = foreach($Session in $GroupSessions){
+        $Copy = Copy-RDMSession $Session -IncludePasswordHistory -IncludeSubConnections
+        if($Copy.Group -eq $MGroup){
+            $Copy.Group = ""
+        }else{
+            $Copy.Group = $Copy.Group.Replace("$MGroup\","") # New vault doesn't have the first folder level structure
+        }
         $Copy
     }
     Show-Status info "$($SessionCreation.Count) session(s) to be created"
     Set-RDMCurrentRepository (Get-RDMRepository -Name $MGroup)
-    $SessionCreation | ForEach-Object{Set-RDMSession $_}
+    Show-Status info "Moving to vault: $MGroup"
+    $ExistingSessions = Get-RDMSession -ErrorAction SilentlyContinue | Where-Object{$_.ConnectionType -ne "Group"}
+    foreach($Session in $SessionCreation){
+        $Test = $ExistingSessions | Where-Object{$Session.Name -eq $_.Name -and $Session.Group -eq $_.Group}
+        if($Test){
+            Show-Status warning "Existing corresponding entry found for session: $($Session.Name) _Skipping_"
+            continue
+        }
+        Set-RDMSession $Session
+        Show-Status info "Created session: $($Session.Name)"
+    }
     Show-Status info "Sessions created for : $MGroup"
     Set-RDMCurrentRepository $MVInfo
 }
 # End session creation
 
-Update-RDMUI
+if($ClientRunning){Update-RDMUI}
