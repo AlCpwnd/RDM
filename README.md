@@ -1,19 +1,34 @@
 # RDM
 Remote Desktop Manger scripting tests
 
-## Disclaimer
-***This is a work in progress, use the script at your own risk and make sure to backup your database prior to running it!***
+## Scripts
 
-## Goal
-The goal would be to create a script that splits a single DB into multiple ones based on the names of the first level of folders, moving all childitems into their respective DB.
+### RDMMigrate.ps1
+The script is meant to separate the main folder structure found within the given vault into individual vaults.
+It will do so using the following steps:
+1. Revocer the name of each of the "Home" folders. (First folder within your folder hierarchy.)
+2. Verify if a corresponding vault exist.
+    - If none are found, it will create the vault.
+3. Document the subfolder hierarchy within the given vault.
+4. Replicate it within the corresponding vaults?
+5. Document the sessions within the given vault.
+6. Copy them over to their corresponding vault.
 
-## Description
-The script will go over the contents of a vault and attempt to create a a new vault for each first degree subfolder, moving it's contents to the newly created folder.
+The script will __COPY__ all the sessions, __NOT MOVE__ the cession. I might add that feature in the future.
 
-## Requiirements
-- Requires de the **RemoteDesktopManager** PowerShell module.
-- You'll be expected to have the rights to create vaults and edit/move folders.
+#### Parameters:
+##### MainVault:
+Name of the vault which's content needs to be replicated into various vaults.
+> The script will verify if the given name is valid.
 
-## Parameters
-### MainVault
-Vault from which the script will recover the subfolders and create vaults accordingly.
+##### Log:
+Switch that enables all outputs from the script to be logged into a txt file with timestamps.
+
+##### Path:
+Allows you to give a custom path / location to the log file. If none are given and the [Log](#log) switch is given, it will generate one automatically at the scipt root.
+
+##### Silent:
+Will mute any output to the console. If used with the [Log](#log) it will still write the output in the log file.
+
+## Acknowledgments:
+Huge thanks to the [Devolutions Forums](https://forum.devolutions.net/product/rdm-windows) and all the people helping and managing it, for all the debugging and insight they offered.
