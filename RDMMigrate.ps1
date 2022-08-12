@@ -7,6 +7,8 @@ param(
 
 #Requires -Module RemoteDesktopManager
 
+$Global:LogBuffer = @()
+
 #===========#
 # Functions #
 #===========#
@@ -22,7 +24,13 @@ function Show-Status{
         "warning" {$Parameters = @{Object = "$Date /!\ $Message";ForegroundColor = "Yellow"}}
         "error" {$Parameters = @{Object = "$Date [!] $Message";ForegroundColor = "Red"}}
     }
-    if($Log){Add-Content -Path $Path -Value $Parameters.Object -ErrorAction SilentlyContinue}
+    if($Log){
+        if(!$LogPath){
+            $Global:LogBuffer += $Parameters.Object
+        }else{
+            Add-Content -Path $LogPath -Value $Parameters.Object -ErrorAction SilentlyContinue
+        }
+    }
     if(!$Silent){Write-Host @Parameters}
 }
 
@@ -50,6 +58,9 @@ if($Log){
     }
     Show-Status info "Loggin enabled"
     Show-Status info "Logfile path: $LogPath"
+    if($LogBuffer){
+        $LogBuffer | ForEach-Object{Add-Content -Path $LogPath -Value $_}
+    }
 }
 
 Show-Status info "Verifying variables"
@@ -133,7 +144,7 @@ foreach($MGroup in $MainGroups){
             Show-Status warning "Existing corresponding entry found for folder: $($Folder.Name) _Skipping_"
             continue
         }
-        # Set-RDMSession $Folder
+        Set-RDMSession $Folder
         Show-Status info "Created folder: $($Folder.Name)"
     }
     Show-Status info "Folders created for: $MGroup"
