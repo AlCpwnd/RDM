@@ -1,6 +1,6 @@
 #Requires -Modules ITGlueAPI,RemoteDesktopManager
 
-$Accounts = Get-ITGlueOrganizations -
+$Accounts = Get-ITGlueOrganizations
 
 $Companies = Get-RDMRepository
 
