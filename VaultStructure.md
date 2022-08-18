@@ -1,4 +1,4 @@
-Default (Vault)
+\[Default\]
 |__Folder 1:
 |  |__Folder 1.1:
 |     |__Session 1
