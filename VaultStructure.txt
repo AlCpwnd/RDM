@@ -1,3 +1,5 @@
+#Before:#
+
 [Default]
  |__(Folder 1)
  |   |__(Folder 1.1)
@@ -10,6 +12,9 @@
      |
      |__(Folder 2.2)
          |__Session 2
+
+
+#After:#
 
 [Folder 1]
  |__(Folder 1.1)
