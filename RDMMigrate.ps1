@@ -119,6 +119,9 @@ if($Exception){
     $Entries = Get-RDMSession | Where-Object{$_.Group -notmatch ($EXCVault.Name -join '|')}
     show-info "$($EXCVault.Count) Exceptions given."
     show-info "$($Entries.Count) Entries found."
+}else{
+    $Entries = Get-RDMSession
+    show-info "$($Entries.Count) Entries found."
 }
 
 # Seperates the main groups
