@@ -133,6 +133,10 @@ if($Exception){
     show-info "$($Entries.Count) Entries found."
 }else{
     $Entries = Get-RDMSession
+<<<<<<< HEAD
+=======
+    show-info "$($Entries.Count) Entries found."
+>>>>>>> 609d94496325ba74a97043614f17d573ddc37533
 }
 
 # Seperates the main groups
