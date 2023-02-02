@@ -1,10 +1,11 @@
 param(
-    [String]$SourceVault
+    [String]$SourceVault,
+    [String]$TemplateVault
 )
 
 #Requires -Modules RemoteDesktopManager
 
-$LogFile = $PSCommandPath.Replace("ps1","txt"):
+$LogFile = $PSCommandPath.Replace("ps1","txt")
 
 show-info{
     param(
@@ -36,6 +37,20 @@ try{
     return
 }
 
+try{
+    $TemplateVaultInfo = Get-RDMVault -Name $TemplateVault -ErrorAction Stop
+    show-info "Template vault defined: $($TemplateVaultInfo.Name)"
+}catch{
+    show-error "Invalid template vault: $TemplateVault"
+    show-info "Exiting script"
+    return
+}
+
+show-info "Recovering template information"
+Set-RDMCurrentVault $TemplateVaultInfo
+$TemplateSessions = Get-RDMSession
+$TemplateRootFolders = $TemplateSessions | Where-Object{$_.Name -eq $_.Group -and $_.ConnectionType -eq "Group"}
+
 $Sessions = Get-RDMSession
 $RootFolders = $Sessions | Where-Object{$_.Name -eq $_.Group -and $_.ConnectionType -eq "Group"}
 show-info "$($RootFolders.Count) rootfolders found"
@@ -53,3 +68,4 @@ foreach($NewVault in $NewVaults){
         show-error "Failed to create vault: $NewVault"
     }
 }
+
