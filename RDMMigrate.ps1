@@ -1,7 +1,17 @@
 param(
+    [Parameter(ParameterSetName='All',Mandatory)]
+    [Parameter(ParameterSetName='Select',Mandatory)]
     [String]$SourceVault,
+
+    [Parameter(ParameterSetName='Select',Mandatory)]
     [Array]$Folders,
-    [Array]$Excaptions
+
+    [Parameter(ParameterSetName='All',Mandatory)]
+    [Switch]$All,
+
+    [Parameter(ParameterSetName='All')]
+    [Parameter(ParameterSetName='Select')]
+    [Array]$Exceptions
 )
 
 #Requires -Modules RemoteDesktopManager
@@ -44,13 +54,21 @@ try{
 
 $Sessions = Get-RDMSession
 show-info "$($Sessions.Count) sessions found"
-$RootFolders = $Sessions | Where-Object{$_.Name -eq $_.Group -and $_.ConnectionType -eq "Group"}
+$RootFolders = ($Sessions | Where-Object{$_.Name -eq $_.Group -and $_.ConnectionType -eq "Group"}).Name
+if(!$All){
+    $Selection = Compare-Object -ReferenceObject $RootFolders -DifferenceObject $Folders -IncludeEqual -ExcludeDifferent
+    if(!$Selection){
+        show-error "No corresponding folder found"
+        show-info "Exiting script"
+        return
+    }
+}
 show-info "$($RootFolders.Count) rootfolders found"
 
 $ExistingVaults = Get-RDMVault
 
 # Vault creation
-$NewVaults = (Compare-Object -ReferenceObject $ExistingVaults.Name -DifferenceObject $RootFolders.Name | Where-Object{$_.SideIndicator -eq "=>"}).InputObject
+$NewVaults = (Compare-Object -ReferenceObject $ExistingVaults.Name -DifferenceObject $RootFolders | Where-Object{$_.SideIndicator -eq "=>"}).InputObject
 show-info "$($NewVaults.Count) new vaults to be created"
 foreach($NewVault in $NewVaults){
     try{
