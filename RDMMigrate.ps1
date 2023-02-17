@@ -10,11 +10,10 @@ param(
     [Switch]$All,
 
     [Parameter(ParameterSetName='All')]
-    [Parameter(ParameterSetName='Select')]
     [Array]$Exceptions
 )
 
-#Requires -Modules RemoteDesktopManager
+#Requires -Modules @{ModuleName="RemoteDesktopManager"; ModuleVersion="2022.3.1.2"} -Version 7
 
 $LogFile = $PSCommandPath.Replace("ps1","txt")
 
@@ -46,6 +45,8 @@ show-info "Initiating script"
 try{
     $SourceVaultInfo = Get-RDMVault -Name $SourceVault -ErrorAction Stop
     show-info "Source vault defined: $($SourceVaultInfo.Name)"
+    Set-RDMCurrentRepository $SourceVaultInfo
+    Show-info "Moving to source vault"
 }catch{
     show-error "Invalid source vault: $SourceVault"
     show-info "Exiting script"
@@ -79,3 +80,33 @@ foreach($NewVault in $NewVaults){
     }
 }
 
+# Sessions copy
+show-info "Initiating session copy"
+$i = 0
+$iMax = $RootFolder.Count
+foreach($RootFolder in $RootFolders){
+    Write-Progress -Activity "Copying folders" -Status $RootFolder -Id 0 -PercentComplete (($i/$iMax)*100)
+    $SubSessions = $Sessions | Where-Object{$_.Group -match $RootFolder}
+    $j = 0
+    $jMax = $SubSessions.Count
+    try{
+        $Copies = foreach($SubSession in $SubSessions){
+            Write-Progress -Activity "Generating copies" -Status $SubSession.Name -Id 1 -PercentComplete (($j/$jMax)*100) -ParentId 0
+            if($SubSession -eq $RootFolder){Continue}
+            $Temp = Copy-RDMSession -PSConnection $SubSession -IncludePasswordHistory -ErrorAction Stop
+            $Temp.Group = $Temp.Group.Replace($RootFolder,"")
+            $Temp
+        }
+        $NewVaultInfo = Get-RDMRepository -Name $RootFolder
+        Set-RDMCurrentRepository $NewVaultInfo -ErrorAction Stop
+    }catch{
+        show-error "Failed to copy sessions for $RootFolder"
+        Continue
+    }
+    try{
+        $Copies | ForEach-Object{New-RDMSession $_ -ErrorAction Stop}
+    }catch{
+        show-error "Failed to create copied sessions for $RootFolder"
+        Continue
+    }
+}
