@@ -19,7 +19,7 @@ $LogFile = $PSCommandPath.Replace("ps1","txt")
 
 # Functions #####################################
 
-show-info{
+function show-info{
     param(
         [String]$Txt
     )
@@ -29,7 +29,7 @@ show-info{
     Add-Content $LogFile -Value $Message
 }
 
-show-error{
+function show-error{
     param(
         [String]$Txt
     )
