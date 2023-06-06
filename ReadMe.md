@@ -2,6 +2,8 @@
 
 This document goes over the various steps needed to split up the current RDM 'Default' vault. As well as a few requests in order to better find information within the new infrastructure.
 
+> Scripts containing the code snippets below as well as the required run parameters van be found in the [scripts](/scripts/).
+
 ## Requests:
 1. [ ] ItGlue integration: make an ItGlue credential entry within each new vault.
 2. [ ] Exact ID integration: reference the internal Exact ID for all clients.
@@ -10,6 +12,7 @@ This document goes over the various steps needed to split up the current RDM 'De
 
 ### Preperation
 Put all existing 'Credential' folders in read only. This should push users towards using the ItGlue link.
+[CredentialsReadOnlye.ps1](/scripts/CredentialsReadOnly.ps1)
 
 ```ps
 # Recovering the template's permissions.
@@ -32,6 +35,7 @@ foreach($Folder in $CredentialFolders){
 
 #### Vault Creation
 Creates a vault for each client.
+[CreateVaults.ps1](/scripts/CreateVaults.ps1)
 
 ```ps
 # Recovering clients from the Default vault.
@@ -48,6 +52,7 @@ foreach($RFolder in $RootFolders){
 
 #### Defining Root folder permissions
 Recovers the rootfolder permissions and applies it to the folders.
+[RootFolderPermissions.ps1](/scripts/RootFolderPermission.ps1)
 
 ```ps
 # Recovering the template's permissions.
@@ -68,6 +73,7 @@ foreach($Vault in $Vaults){
 
 #### Recreating folder structure
 Recreates the existing folder structure in the newly created ones.
+[CopyFolderStructure.ps1](/scripts/CopyFolderStructure.ps1)
 
 ```ps
 # Recovering sessions.
@@ -99,6 +105,7 @@ foreach($RFolder in $RootFolders){
 
 #### Copying over the sessions
 It is highly recommended that all users leave the application prior to running the code below. If a user has one of the sessions open or is editing the sessions while it's being copied, it might abort the operation for the session in question.
+[CopySessions.ps1](/scripts/CopySessions.ps1)
 
 ```ps
 # Recovering sessions.
