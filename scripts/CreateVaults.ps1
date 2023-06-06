@@ -9,7 +9,7 @@ $RootFolders = (Get-RDMSession | Where-Object{$_.Name -eq $_.Group -and $_.Conne
 
 # Creating the Vaults.
 foreach($RFolder in $RootFolders){
-    $Repository = New-RDMRepository -Name $RFolder.Name
+    $Repository = New-RDMRepository -Name $RFolder
     Set-RDMRepository $Repository
-    Write-Host "Created: $($RFoldere.Namee)"
+    Write-Host "Created: $RFolder"
 }

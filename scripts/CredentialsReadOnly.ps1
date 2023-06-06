@@ -14,7 +14,7 @@ $CredentialFolders = Get-RDMSession -Name Credentials | Where-Object{$_.Connecti
 # Replacing permissions with the template one.
 $Properties = $TemplateCred.Security.PSObject.Properties
 foreach($Folder in $CredentialFolders){
-    $Properties | foreach{$Folder.Security.$($_.Name) = $_.Value}
+    $Properties | ForEach-Object{$Folder.Security.$($_.Name) = $_.Value}
     Set-RDMSession $Folder
     Write-Host "Done: $($Folder.Group)"
 }
