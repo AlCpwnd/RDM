@@ -134,3 +134,29 @@ foreach($RFolder in $RootFolders){
     Write-Host "Sessions copied for: $RFolder"
 }
 ```
+
+## Requests
+
+### ItGlue entry creation
+Create an ItGlue entry within each existing vault.
+[ItGlueEntry.ps1](/scripts/ItGlueEntry.ps1)
+
+```ps
+# Recovering the default ItGlue entry
+Set-RDMCurrentRepository (Get-RDMRepository -Name 'Template_Vault')
+$ItGlue = Get-Session -Name 'It Glue'
+
+# Recreating the entry in each repository
+$Vaults = Get-RDMRepository
+foreach($Vault in $Vaults){
+    Set-RDMCurrentRepository $Vault
+    $Test = Get-RDMSession | Where-Object{$_.Credentials.ITGlueSafeApiKey -ne $null -and $_.ConnectionType -eq  'Credential'}
+    if(!Test){
+        $CredEntry = Copy-RDMSession $ItGlue
+        Set-RDMSession $CredEntry
+        Write-Host "Created ItGlue entry $($Vault.Name)"
+    }else{
+        Write-Host "Present for $($Vault.Name)"
+    }
+}
+```
