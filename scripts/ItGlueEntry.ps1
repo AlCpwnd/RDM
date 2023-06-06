@@ -12,7 +12,7 @@ $Vaults = Get-RDMRepository
 foreach($Vault in $Vaults){
     Set-RDMCurrentRepository $Vault
     $Test = Get-RDMSession | Where-Object{$_.Credentials.ITGlueSafeApiKey -ne $null -and $_.ConnectionType -eq  'Credential'}
-    if(!Test){
+    if(!$Test){
         $CredEntry = Copy-RDMSession $ItGlue
         Set-RDMSession $CredEntry
         Write-Host "Created ItGlue entry $($Vault.Name)"
