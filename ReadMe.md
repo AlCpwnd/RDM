@@ -11,15 +11,34 @@ This document goes over the various steps needed to split up the current RDM 'De
 ## Migration
 
 ### Preperation
+
+#### Verify that existing folders have permission inheritance enabled
+Going over the cessions within a vault and verifying that no folders have custom permissions.
+[EnableInheritance.ps1](/scripts/EnableInheritance.ps1)
+
+```ps
+# Recovering sessions who don't have inheritance enabled
+Set-RDMCurrentRepository (Get-RDMRepository -Name 'Default')
+$Sessions = Get-RDMSession | Where-Object{$_.Security.RoleOverride -ne 'Default'}
+
+# Enabling inheritance on the found sessions
+foreach($Session in $Sessions){
+    $Session.Security.RoleOverride = 'Default'
+    Set-RDMSession $Session
+    Write-Host "Done: $($Session.group)"
+}
+```
+
+#### Set existing credental folders to Read Only
 Put all existing 'Credential' folders in read only. This should push users towards using the ItGlue link.
 [CredentialsReadOnlye.ps1](/scripts/CredentialsReadOnly.ps1)
 
 ```ps
 # Recovering the template's permissions.
-Set-RDMCurrentRepository (Get-RDMRepository -Name 'Name 'Template_Vault')
+Set-RDMCurrentRepository (Get-RDMRepository -Name 'Template_Vault')
 $TemplateCred = Get-RDMSession -Name Credentials
 # Recovering existing Credentials folders.
-Set-RDMCurrentRepository (Get-RDMRepository -Name 'Name 'Default')
+Set-RDMCurrentRepository (Get-RDMRepository -Name 'Default')
 $CredentialFolders = Get-RDMSession -Name Credentials | Where-Object{$_.ConnectionType -eq 'Group'}
 
 # Replacing permissions with the template one.
@@ -138,8 +157,10 @@ foreach($RFolder in $RootFolders){
 ## Requests
 
 ### ItGlue entry creation
+
+#### Within each vault
 Create an ItGlue entry within each existing vault.
-[ItGlueEntry.ps1](/scripts/ItGlueEntry.ps1)
+[ItGlueEntry.ps1](/scripts/ItGlueEntry_Vaults.ps1)
 
 ```ps
 # Recovering the default ItGlue entry
@@ -157,6 +178,36 @@ foreach($Vault in $Vaults){
         Write-Host "Created ItGlue entry $($Vault.Name)"
     }else{
         Write-Host "Present for $($Vault.Name)"
+    }
+}
+```
+
+#### Within each existing folder
+Create an ItGlue entry within each 'subfolder'.
+[ItGLueEntry_Folder.ps1](/scripts/ItGlueEntry_Folder.ps1)
+
+```ps
+# Recovering the default ItGlue entry
+Set-RDMCurrentRepository (Get-RDMRepository -Name 'Template_Vault')
+$ItGlue = Get-Session -Name 'It Glue'
+
+# Recovering existing credential entries
+Set-RDMCurrentRepository (Get-RDMRepository -Name 'Default')
+$Sessions = Get-RDMSession
+$Folders = $Sessions | Where-Object{$_.ConnectionType -eq 'Group' -and $_.Name -eq $_.Group}
+
+# Verifying if ItGlue credentials already exist
+$ExistingCredentials = ($Sessions | Where-Object{$_.ConnectionType -eq 'Credential' -and $_.Credentials.ITGlueSafeApiKey}).Group
+foreach($Folder in $Folders){
+    $Test = $ExistingCredentials | Where-Object{$_ -match $Folder.Name}
+    if(!$Test){
+        # Creating the entry
+        $ItGl = Copy-RDMSession $ItGlue
+        $ItGl.Group = $Folder.Group
+        # Adding mark in order to note further configuration
+        $ItGl.Name = "$($Folder.Name) [To be configured]"
+        Set-RDMSession $ItGl
+        Write-Host "Session created for: $($Folder.Name)"
     }
 }
 ```
