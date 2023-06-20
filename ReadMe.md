@@ -5,7 +5,7 @@ This document goes over the various steps needed to split up the current RDM 'De
 > Scripts containing the code snippets below as well as the required run parameters van be found in the [scripts](/scripts/).
 
 ## Requests:
-1. [ ] ItGlue integration: make an ItGlue credential entry within each new vault.
+1. [x] ItGlue integration: make an ItGlue credential entry within each new vault.
 2. [ ] Exact ID integration: reference the internal Exact ID for all clients.
 
 ## Migration
