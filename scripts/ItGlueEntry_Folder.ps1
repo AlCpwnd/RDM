@@ -5,7 +5,7 @@
 
 # Recovering the default ItGlue entry
 Set-RDMCurrentRepository (Get-RDMRepository -Name 'Template_Vault')
-$ItGlue = Get-Session -Name 'It Glue'
+$ItGlue = Get-RDMSession -Name 'IT Glue [To be configured]'
 
 # Recovering existing credential entries
 Set-RDMCurrentRepository (Get-RDMRepository -Name 'Default')
