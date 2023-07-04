@@ -24,7 +24,7 @@ foreach($RFolder in $RootFolders){
     Set-RDMCurrentRepository $(Get-RDMRepository -Name $RFolder)
 
     # Creating the folder structure.
-    $Copy | ForEach-Object{New-RDMSession $_}
+    $Copy | ForEach-Object{Set-RDMSession $_}
     Write-Host "$($Copy.Count) sessions(s) created."
     Write-Host "Sessions copied for: $RFolder"
 }

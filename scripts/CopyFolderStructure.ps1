@@ -15,7 +15,7 @@ foreach($RFolder in $RootFolders){
 
     # Preparing the sessions for copy.
     $Copy = foreach($Session in $ToCopy){
-        $Temp = Copy-RDMSession $Session
+        $Temp = Copy-RDMSession -PSConnection $Session -IncludePasswordHistory
         $Temp.Group = $Temp.Group.Replace("$RFolder\",'')
         $Temp
     }
@@ -24,7 +24,7 @@ foreach($RFolder in $RootFolders){
     Set-RDMCurrentRepository $(Get-RDMRepository -Name $RFolder)
 
     # Creating the folder structure.
-    $Copy | ForEach-Object{New-RDMSession $_}
+    $Copy | ForEach-Object{Set-RDMSession $_}
     Write-Host "$($Copy.Count) folder(s) created."
     Write-Host "Folders copied for: $RFolder"
 }
