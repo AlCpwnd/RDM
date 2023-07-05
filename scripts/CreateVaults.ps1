@@ -1,4 +1,4 @@
-#Requires -Modules @{ModuleName="RemoteDesktopManager"; ModuleVersion="2022.3.1.2"} -Version 7
+#Requires -Modules @{ModuleName="Devolutions.PowerShell"; ModuleVersion="2023.2.0.1"} -Version 7
 
 #   BKM-Orange
 #   JAAL - 05/06/2023
