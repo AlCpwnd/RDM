@@ -204,6 +204,7 @@ foreach($Vault in $Vaults){
 
 #### Within each existing folder
 Create an ItGlue entry within each 'subfolder'.
+
 [ItGLueEntry_Folder.ps1](/scripts/ItGlueEntry_Folder.ps1)
 
 ```ps
@@ -234,6 +235,7 @@ foreach($Folder in $Folders){
 
 ## Reporting
 Creates a reort of existing vauls and their description.
+
 [VaultReport.ps1](/scripts/VaultReport.ps1)
 
 ```ps
