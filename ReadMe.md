@@ -223,3 +223,20 @@ foreach($Folder in $Folders){
     }
 }
 ```
+
+## Reporting
+Creates a reort of existing vauls and their description.
+[VaultReport.ps1](/scripts/VaultReport.ps1)
+
+```ps
+# Recovering existing vaults
+$Vaults = Get-RDMRepository | Select-Object ID,Name,Description
+
+# Preparing filename for report
+$Date = Get-Date -Format 'yyyyMMdd'
+$FileName = "$PSScriptRoot\$Date`_VaultReport.csv"
+
+# File Export
+$Vaults | Export-Csv -Path $FileName -Delimiter ';' -NoTypeInformation -Encoding unicode
+Write-Host "File generated: $FileName"
+```
