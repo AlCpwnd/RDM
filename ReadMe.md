@@ -130,11 +130,11 @@ foreach($RFolder in $RootFolders){
 }
 ```
 
-#### Copying over the sessions
+#### Moving over the sessions
 It is highly recommended that all users leave the application prior to running the code below. If a user has one of the sessions open or is editing the sessions while it's being copied, it might abort the operation for the session in question.
 > During testing moving entries to 300 different vaults caused the database to become unresponsive and no longer allow authentication. This was resolved by restarting the host and no changes were lost. But if you're planning a big migration of 250+ vaults, I would recommend splitting it up.
 
-[CopySessions.ps1](/scripts/CopySessions.ps1)
+[CopySessions.ps1](/scripts/MoveSessions.ps1)
 
 ```ps
 # Recovering sessions.
