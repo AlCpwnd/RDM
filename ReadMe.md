@@ -4,9 +4,6 @@ This document goes over the various steps needed to split up the current RDM 'De
 
 > Scripts containing the code snippets below as well as the required run parameters van be found in the [scripts](/scripts/).
 
-## Requests:
-1. [x] ItGlue integration: make an ItGlue credential entry within each new vault.
-2. [ ] Exact ID integration: reference the internal Exact ID for all clients.
 
 ## Migration
 
@@ -37,6 +34,7 @@ Put all existing 'Credential' folders in read only. This should push users towar
 # Recovering the template's permissions.
 Set-RDMCurrentRepository (Get-RDMRepository -Name 'Template_Vault')
 $TemplateCred = Get-RDMSession -Name Credentials
+
 # Recovering existing Credentials folders.
 Set-RDMCurrentRepository (Get-RDMRepository -Name 'Default')
 $CredentialFolders = Get-RDMSession -Name Credentials | Where-Object{$_.ConnectionType -eq 'Group'}
@@ -44,7 +42,7 @@ $CredentialFolders = Get-RDMSession -Name Credentials | Where-Object{$_.Connecti
 # Replacing permissions with the template one.
 $Properties = $TemplateCred.Security.PSObject.Properties
 foreach($Folder in $CredentialFolders){
-    $Properties | foreach{$Folder.Security.$($_.Name) = $_.Value}
+    $Properties | ForEach-Object{$Folder.Security.$($_.Name) = $_.Value}
     Set-RDMSession $Folder
     Write-Host "Done: $($Folder.Group)"
 }
@@ -63,9 +61,9 @@ $RootFolders = (Get-RDMSession | Where-Object{$_.Name -eq $_.Group -and $_.Conne
 
 # Creating the Vaults.
 foreach($RFolder in $RootFolders){
-    $Repository = New-RDMRepository -Name $RFolder.Name
+    $Repository = New-RDMRepository -Name $RFolder
     Set-RDMRepository $Repository
-    Write-Host "Created: $($RFoldere.Name)"
+    Write-Host "Created: $RFolder"
 }
 ```
 
@@ -77,22 +75,26 @@ Recovers the rootfolder permissions and applies it to the folders.
 # Recovering the template's permissions.
 Set-RDMCurrentRepository (Get-RDMRepository -Name 'Template_Vault')
 $RootTemplate = Get-RDMRootSession
+$Properties = $RootTemplate.Security.PSObject.Properties
 
 # Recovering existing vaults.
-$Properties = $RootTemplate.Security.PSObject.Properties
 $Vaults = Get-RDMRepository
 foreach($Vault in $Vaults){
+    # Moving to the concerned vault.
     Set-RDMCurrentRepository $Vault
+
+    # Applying the permissions on the root folder.
     $RootFolder = Get-RDMRootSession
-    $Properties | foreach{$RootFolder.Security.$($_.Name) = $_.Value}
+    $Properties | ForEach-Object{$RootFolder.Security.$($_.Name) = $_.Value}
     Set-RDMRootSession $RootFolder
     Write-Host "Rooltfolder permissions defined for $($Vault.Name)"
 }
 ```
 
-#### Recreating folder structure
+#### Recreating folder structure (**Deprecated**)
+> This script has been moved to the 'Old' folder. It has been totally replaced with the `Move-RDMSession` command.
 Recreates the existing folder structure in the newly created ones.
-[CopyFolderStructure.ps1](/scripts/CopyFolderStructure.ps1)
+[CopyFolderStructure.ps1](/scripts/Old/CopyFolderStructure.ps1)
 
 ```ps
 # Recovering sessions.
@@ -124,6 +126,7 @@ foreach($RFolder in $RootFolders){
 
 #### Copying over the sessions
 It is highly recommended that all users leave the application prior to running the code below. If a user has one of the sessions open or is editing the sessions while it's being copied, it might abort the operation for the session in question.
+> During testing moving entries to 300 different vaults caused the database to become unresponsive and no longer allow authentication. This was resolved by restarting the host and no changes were lost. But if you're planning a big migration of 250+ vaults, I would recommend splitting it up.
 [CopySessions.ps1](/scripts/CopySessions.ps1)
 
 ```ps
@@ -131,26 +134,35 @@ It is highly recommended that all users leave the application prior to running t
 Set-RDMCurrentRepository (Get-RDMRepository -Name 'Default')
 $Sessions = Get-RDMSession
 $RootFolders = ($Sessions | Where-Object{$_.Name -eq $_.Group -and $_.ConnectionType -eq "Group"}).Name
-$SessionsToBeCopied = $Sessions | Where-Object{$_.ConnectionType -ne "Group" -and $RootFolders -notcontains $_.Name}
+$ToBeCopied = $Sessions | Where-Object{$RootFolders -notcontains $_.Name -or $_.ConnectionType -ne 'Group'}
+
+$i = 0
+$iMax = $RootFolders.Count
 
 # Sorting through the folders.
 foreach($RFolder in $RootFolders){
-    $ToCopy = $SessionsToBeCopied | Where-Object{$_.Group -match "$RFolder\\"}
+    Write-Progress -Activity "Moving sessions [$i/$iMax]" -Status $RFolder -PercentComplete (($i/$iMax)*100)
+    $ToCopy = $ToBeCopied | Where-Object{($_.Group -like "$RFolder\*" -or $_.Group -eq $RFolder) -and $_.Group -notmatch "$RFolder\\.+\\"}
 
     # Preparing the sessions for copy.
     $Copy = foreach($Session in $ToCopy){
-        $Temp = Copy-RDMSession $Session
-        $Temp.Group = $Temp.Group.Replace("$RFolder\",'')
-        $Temp
+        if($Session.Group -eq $RFolder){
+            $Session.Group = ""
+            $Session
+        }elseif($Session.ConnectionType -eq 'Group'){
+            $Session.Group = $Session.Group.Replace("$RFolder\",'')
+            $Session
+        }
     }
 
-    # Moving to the vault.
-    Set-RDMCurrentRepository $(Get-RDMRepository -Name $RFolder)
+    # Recovering the destination vault
+    $Vault = Get-RDMRepository -Name $RFolder
 
-    # Creating the folder structure.
-    $Copy | ForEach-Object{Set-RDMSession $_}
-    Write-Host "$($Copy.Count) sessions(s) created."
-    Write-Host "Sessions copied for: $RFolder"
+    # Moving entries to the vault
+    $Copy | ForEach-Object{Move-RDMSession -InputObject $_ -ToVaultID $Vault.ID}
+    Write-Host "$($ToCopy.Count) sessions(s) moved."
+    Write-Host "Sessions moved for: $RFolder"
+    $i++
 }
 ```
 
@@ -159,7 +171,7 @@ foreach($RFolder in $RootFolders){
 ### ItGlue entry creation
 
 #### Within each vault
-Create an ItGlue entry within each existing vault.
+Creates a copy of an existing ItGlue entry into each vault.
 [ItGlueEntry.ps1](/scripts/ItGlueEntry_Vaults.ps1)
 
 ```ps
@@ -172,7 +184,7 @@ $Vaults = Get-RDMRepository
 foreach($Vault in $Vaults){
     Set-RDMCurrentRepository $Vault
     $Test = Get-RDMSession | Where-Object{$_.Credentials.ITGlueSafeApiKey -ne $null -and $_.ConnectionType -eq  'Credential'}
-    if(!Test){
+    if(!$Test){
         $CredEntry = Copy-RDMSession $ItGlue
         Set-RDMSession $CredEntry
         Write-Host "Created ItGlue entry $($Vault.Name)"
@@ -189,7 +201,7 @@ Create an ItGlue entry within each 'subfolder'.
 ```ps
 # Recovering the default ItGlue entry
 Set-RDMCurrentRepository (Get-RDMRepository -Name 'Template_Vault')
-$ItGlue = Get-Session -Name 'It Glue'
+$ItGlue = Get-RDMSession -Name 'IT Glue [To be configured]'
 
 # Recovering existing credential entries
 Set-RDMCurrentRepository (Get-RDMRepository -Name 'Default')
