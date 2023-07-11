@@ -11,6 +11,7 @@ This document goes over the various steps needed to split up the current RDM 'De
 
 #### Verify that existing folders have permission inheritance enabled
 Going over the cessions within a vault and verifying that no folders have custom permissions.
+
 [EnableInheritance.ps1](/scripts/EnableInheritance.ps1)
 
 ```ps
@@ -28,6 +29,7 @@ foreach($Session in $Sessions){
 
 #### Set existing credental folders to Read Only
 Put all existing 'Credential' folders in read only. This should push users towards using the ItGlue link.
+
 [CredentialsReadOnlye.ps1](/scripts/CredentialsReadOnly.ps1)
 
 ```ps
@@ -52,6 +54,7 @@ foreach($Folder in $CredentialFolders){
 
 #### Vault Creation
 Creates a vault for each client.
+
 [CreateVaults.ps1](/scripts/CreateVaults.ps1)
 
 ```ps
@@ -69,6 +72,7 @@ foreach($RFolder in $RootFolders){
 
 #### Defining Root folder permissions
 Recovers the rootfolder permissions and applies it to the folders.
+
 [RootFolderPermissions.ps1](/scripts/RootFolderPermission.ps1)
 
 ```ps
@@ -93,7 +97,9 @@ foreach($Vault in $Vaults){
 
 #### Recreating folder structure (**Deprecated**)
 > This script has been moved to the 'Old' folder. It has been totally replaced with the `Move-RDMSession` command.
+
 Recreates the existing folder structure in the newly created ones.
+
 [CopyFolderStructure.ps1](/scripts/Old/CopyFolderStructure.ps1)
 
 ```ps
@@ -127,6 +133,7 @@ foreach($RFolder in $RootFolders){
 #### Copying over the sessions
 It is highly recommended that all users leave the application prior to running the code below. If a user has one of the sessions open or is editing the sessions while it's being copied, it might abort the operation for the session in question.
 > During testing moving entries to 300 different vaults caused the database to become unresponsive and no longer allow authentication. This was resolved by restarting the host and no changes were lost. But if you're planning a big migration of 250+ vaults, I would recommend splitting it up.
+
 [CopySessions.ps1](/scripts/CopySessions.ps1)
 
 ```ps
@@ -172,6 +179,7 @@ foreach($RFolder in $RootFolders){
 
 #### Within each vault
 Creates a copy of an existing ItGlue entry into each vault.
+
 [ItGlueEntry.ps1](/scripts/ItGlueEntry_Vaults.ps1)
 
 ```ps
