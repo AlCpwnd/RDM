@@ -7,24 +7,33 @@
 Set-RDMCurrentRepository (Get-RDMRepository -Name 'Default')
 $Sessions = Get-RDMSession
 $RootFolders = ($Sessions | Where-Object{$_.Name -eq $_.Group -and $_.ConnectionType -eq "Group"}).Name
-$SessionsToBeCopied = $Sessions | Where-Object{$_.ConnectionType -ne "Group" -and $RootFolders -notcontains $_.Name}
+$ToBeCopied = $Sessions | Where-Object{$RootFolders -notcontains $_.Name -or $_.ConnectionType -ne 'Group'}
+
+$i = 0
+$iMax = $RootFolders.Count
 
 # Sorting through the folders.
 foreach($RFolder in $RootFolders){
-    $ToCopy = $SessionsToBeCopied | Where-Object{$_.Group -match "$RFolder\\"}
+    Write-Progress -Activity "Moving sessions [$i/$iMax]" -Status $RFolder -PercentComplete (($i/$iMax)*100)
+    $ToCopy = $ToBeCopied | Where-Object{($_.Group -like "$RFolder\*" -or $_.Group -eq $RFolder) -and $_.Group -notmatch "$RFolder\\.+\\"}
 
     # Preparing the sessions for copy.
     $Copy = foreach($Session in $ToCopy){
-        $Temp = Copy-RDMSession $Session
-        $Temp.Group = $Temp.Group.Replace("$RFolder\",'')
-        $Temp
+        if($Session.Group -eq $RFolder){
+            $Session.Group = ""
+            $Session
+        }elseif($Session.ConnectionType -eq 'Group'){
+            $Session.Group = $Session.Group.Replace("$RFolder\",'')
+            $Session
+        }
     }
 
-    # Moving to the vault.
-    Set-RDMCurrentRepository $(Get-RDMRepository -Name $RFolder)
+    # Recovering the destination vault
+    $Vault = Get-RDMRepository -Name $RFolder
 
-    # Creating the folder structure.
-    $Copy | ForEach-Object{Set-RDMSession $_}
-    Write-Host "$($Copy.Count) sessions(s) created."
-    Write-Host "Sessions copied for: $RFolder"
+    # Moving entries to the vault
+    $Copy | ForEach-Object{Move-RDMSession -InputObject $_ -ToVaultID $Vault.ID}
+    Write-Host "$($ToCopy.Count) sessions(s) moved."
+    Write-Host "Sessions moved for: $RFolder"
+    $i++
 }
